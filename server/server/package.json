@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "creando-lazos-server": "file:.."
+  }
+}
