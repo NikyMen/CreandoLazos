@@ -21,10 +21,16 @@
         "backgroundColor": "#2079b4"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.smallkeloft.CreandoLazos"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "6675065c-c34e-4151-b998-ee9b96640d41"
+      }
     }
   }
 }

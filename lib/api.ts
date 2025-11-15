@@ -14,3 +14,8 @@ export function setAuthToken(token?: string) {
     delete api.defaults.headers.common['Authorization'];
   }
 }
+
+export function absoluteUrl(p: string) {
+  if (!p) return API_URL;
+  return /^https?:\/\//.test(p) ? p : `${API_URL}${p}`;
+}

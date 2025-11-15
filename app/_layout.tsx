@@ -1,13 +1,13 @@
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../lib/auth';
-import { colors } from '../lib/theme';
+import { colors, paperTheme } from '../lib/theme';
 import { Provider as PaperProvider } from 'react-native-paper';
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <PaperProvider>
+      <PaperProvider theme={paperTheme}>
         <AuthProvider>
           <Stack screenOptions={{
           headerStyle: { backgroundColor: colors.primary },

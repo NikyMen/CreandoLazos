@@ -21,3 +21,19 @@ export const radius = {
   md: 12,
   lg: 16,
 };
+
+import { MD3LightTheme as DefaultTheme } from 'react-native-paper';
+
+export const paperTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: colors.primary,
+    secondary: colors.secondary,
+    tertiary: colors.accent,
+    background: colors.background,
+    surface: '#ffffff',
+    onSurface: colors.text,
+    outline: colors.border,
+  },
+};
