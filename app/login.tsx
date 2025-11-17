@@ -12,6 +12,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
   const onSubmit = async () => {
     setLoading(true);
@@ -32,7 +33,7 @@ export default function LoginScreen() {
   }, [isAuthenticated, role, router]);
 
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.md }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', padding: spacing.md }}>
       <Image source={require('../assets/icon.png')} style={{ width: 120, height: 120, marginBottom: spacing.md }} />
       <Text style={{ fontSize: 26, marginBottom: spacing.sm, color: colors.secondary }}>Creando Lazos</Text>
       <PaperTextInput
@@ -46,10 +47,11 @@ export default function LoginScreen() {
       />
       <PaperTextInput
         placeholder="Contraseña"
-        secureTextEntry={true}
+        secureTextEntry={!passwordVisible}
         value={password}
         onChangeText={setPassword}
         mode="outlined"
+        right={<PaperTextInput.Icon icon={passwordVisible ? 'eye-off' : 'eye'} onPress={() => setPasswordVisible((v) => !v)} />}
         style={{ width: 300, marginBottom: spacing.sm }}
       />
       {error ? <Text style={{ color: colors.accent, marginBottom: spacing.sm }}>{error}</Text> : null}
