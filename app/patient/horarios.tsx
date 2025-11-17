@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView } from 'react-native';
+import { Divider } from 'react-native-paper';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../../lib/auth';
 import { colors, spacing } from '../../lib/theme';
@@ -25,31 +26,32 @@ export default function PatientHorarios() {
 
   return (
     <View style={{ flex: 1, padding: spacing.md }}>
-      <Text style={{ fontSize: 22, color: colors.accent, marginBottom: spacing.sm }}>Horarios</Text>
-      {note ? <Text style={{ marginBottom: spacing.md }}>{note}</Text> : null}
+      <Text style={{ fontSize: 22, color: colors.accent, marginBottom: spacing.xs }}>Horarios</Text>
+      {note ? <Text style={{ marginBottom: spacing.sm, color: colors.muted }}>{note}</Text> : null}
       <ScrollView horizontal style={{ flex: 1 }}>
-        <View style={{ minWidth: 800 }}>
-          <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border }}>
-            <View style={{ width: 90, padding: 8 }}>
-              <Text style={{ fontWeight: '600' }}>Hora</Text>
+        <View style={{ minWidth: 900 }}>
+          <View style={{ flexDirection: 'row' }}>
+            <View style={{ width: 100, padding: 10, backgroundColor: colors.secondary }}>
+              <Text style={{ color: '#fff', fontWeight: '700' }}>Hora</Text>
             </View>
             {dias.map((d) => (
-              <View key={d} style={{ flex: 1, padding: 8 }}>
-                <Text style={{ fontWeight: '600' }}>{d}</Text>
+              <View key={d} style={{ flex: 1, padding: 10, backgroundColor: colors.secondary }}>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>{d}</Text>
               </View>
             ))}
           </View>
+          <Divider style={{ backgroundColor: colors.border }} />
           <ScrollView style={{ flex: 1 }}>
-            {slots.map((t) => (
-              <View key={t} style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border }}>
-                <View style={{ width: 90, padding: 8 }}>
-                  <Text>{t}</Text>
+            {slots.map((t, idx) => (
+              <View key={t} style={{ flexDirection: 'row', backgroundColor: idx % 2 === 0 ? '#f6f8fb' : '#ffffff' }}>
+                <View style={{ width: 100, padding: 10 }}>
+                  <Text style={{ fontWeight: '600' }}>{t}</Text>
                 </View>
                 {dias.map((d) => {
                   const k = keyFor(d, t);
                   const val = cells[k] || '';
                   return (
-                    <View key={k} style={{ flex: 1, padding: 8 }}>
+                    <View key={k} style={{ flex: 1, padding: 10 }}>
                       <Text style={{ color: colors.text }}>{val}</Text>
                     </View>
                   );

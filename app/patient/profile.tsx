@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../../lib/auth';
 import { colors, spacing } from '../../lib/theme';
@@ -20,7 +20,7 @@ export default function PatientProfile() {
   if (role !== 'PATIENT') return <Redirect href="/admin/home" />;
 
   return (
-    <View style={{ flex: 1, padding: spacing.md }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: spacing.md }}>
       <Text style={{ fontSize: 22, color: colors.accent, marginBottom: spacing.sm }}>Perfil</Text>
       <Text style={{ marginBottom: spacing.sm }}>Nombre y apellido: {profile.nombreApellido || ''}</Text>
       <Text style={{ marginBottom: spacing.sm }}>CUIL/DNI: {profile.cuilDni || ''}</Text>
@@ -28,6 +28,7 @@ export default function PatientProfile() {
       <Text style={{ marginBottom: spacing.sm }}>Correo: {profile.correo || ''}</Text>
       <Text style={{ marginBottom: spacing.sm }}>Escuela: {profile.escuela || ''}</Text>
       <Text style={{ marginBottom: spacing.sm }}>Diagnóstico: {profile.diagnostico || ''}</Text>
-    </View>
+      <View style={{ height: spacing.md }} />
+    </ScrollView>
   );
 }

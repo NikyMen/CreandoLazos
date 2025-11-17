@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Button, Alert } from 'react-native';
+import { View, Text, Alert, ScrollView } from 'react-native';
+import { TextInput as PaperTextInput, Button as PaperButton } from 'react-native-paper';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../../lib/auth';
 import { colors, spacing, radius } from '../../lib/theme';
@@ -52,78 +53,88 @@ export default function AdminProfile() {
   };
 
   return (
-    <View style={{ flex: 1, padding: spacing.md }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: spacing.md }}>
       <Text style={{ fontSize: 22, color: colors.secondary, marginBottom: spacing.sm }}>Perfil</Text>
       <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: spacing.md }}>
-        <TextInput
+        <PaperTextInput
           placeholder="usuario@dominio"
           value={email}
           onChangeText={setEmail}
-          style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 10, backgroundColor: '#fff' }}
+          mode="outlined"
+          style={{ flex: 1 }}
         />
-        <Button title="Ver perfil" onPress={loadProfile} color={colors.primary} />
+        <PaperButton mode="contained" icon="account-search" onPress={loadProfile}>Ver perfil</PaperButton>
       </View>
       <Text>Nombre y apellido</Text>
-      <TextInput
+      <PaperTextInput
         value={profile.nombreApellido || ''}
         onChangeText={(v) => setProfile((p) => ({ ...p, nombreApellido: v }))}
-        style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 10, marginBottom: spacing.sm, backgroundColor: '#fff' }}
+        mode="outlined"
+        style={{ marginBottom: spacing.sm }}
       />
       <Text>CUIL/DNI</Text>
-      <TextInput
+      <PaperTextInput
         value={profile.cuilDni || ''}
         onChangeText={(v) => setProfile((p) => ({ ...p, cuilDni: v }))}
-        style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 10, marginBottom: spacing.sm, backgroundColor: '#fff' }}
+        mode="outlined"
+        style={{ marginBottom: spacing.sm }}
       />
       <Text>Obra social</Text>
-      <TextInput
+      <PaperTextInput
         value={profile.obraSocial || ''}
         onChangeText={(v) => setProfile((p) => ({ ...p, obraSocial: v }))}
-        style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 10, marginBottom: spacing.sm, backgroundColor: '#fff' }}
+        mode="outlined"
+        style={{ marginBottom: spacing.sm }}
       />
       <Text>Correo</Text>
-      <TextInput
+      <PaperTextInput
         value={profile.correo || ''}
         onChangeText={(v) => setProfile((p) => ({ ...p, correo: v }))}
         keyboardType="email-address"
         autoCapitalize="none"
-        style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 10, marginBottom: spacing.sm, backgroundColor: '#fff' }}
+        mode="outlined"
+        style={{ marginBottom: spacing.sm }}
       />
       <Text>Escuela</Text>
-      <TextInput
+      <PaperTextInput
         value={profile.escuela || ''}
         onChangeText={(v) => setProfile((p) => ({ ...p, escuela: v }))}
-        style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 10, marginBottom: spacing.sm, backgroundColor: '#fff' }}
+        mode="outlined"
+        style={{ marginBottom: spacing.sm }}
       />
       <Text>Diagnóstico</Text>
-      <TextInput
+      <PaperTextInput
         value={profile.diagnostico || ''}
         onChangeText={(v) => setProfile((p) => ({ ...p, diagnostico: v }))}
         multiline
-        style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 10, minHeight: 80, marginBottom: spacing.md, backgroundColor: '#fff' }}
+        mode="outlined"
+        style={{ minHeight: 80, marginBottom: spacing.md }}
       />
-      <Button title="Guardar" onPress={saveProfile} color={colors.primary} />
+      <PaperButton mode="contained" icon="content-save" onPress={saveProfile}>Guardar</PaperButton>
 
       <View style={{ height: spacing.lg }} />
       <Text style={{ fontSize: 18, marginBottom: spacing.sm }}>Crear nuevo paciente</Text>
       <Text>Email</Text>
-      <TextInput
+      <PaperTextInput
         placeholder="paciente@dominio"
         value={newPatientEmail}
         onChangeText={setNewPatientEmail}
         autoCapitalize="none"
         keyboardType="email-address"
-        style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 10, backgroundColor: '#fff', marginBottom: spacing.sm }}
+        mode="outlined"
+        style={{ marginBottom: spacing.sm }}
       />
       <Text>Contraseña</Text>
-      <TextInput
+      <PaperTextInput
         placeholder="********"
         value={newPatientPassword}
         onChangeText={setNewPatientPassword}
         secureTextEntry
-        style={{ borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 10, backgroundColor: '#fff', marginBottom: spacing.sm }}
+        mode="outlined"
+        style={{ marginBottom: spacing.sm }}
       />
-      <Button title="Crear paciente" onPress={createPatient} color={colors.primary} />
-    </View>
+      <PaperButton mode="contained" icon="account-plus" onPress={createPatient}>Crear paciente</PaperButton>
+      <View style={{ height: spacing.md }} />
+    </ScrollView>
   );
 }

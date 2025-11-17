@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Button, FlatList, Alert, Platform } from 'react-native';
+import { View, Text, FlatList, Alert, Platform } from 'react-native';
+import { TextInput as PaperTextInput, Button as PaperButton } from 'react-native-paper';
 import { Redirect, useRouter } from 'expo-router';
 import { useAuth } from '../../lib/auth';
 import { colors, spacing } from '../../lib/theme';
@@ -89,7 +90,19 @@ export default function AdminStudies() {
         type: '*/*',
       });
       if (res.canceled) return;
-      const { name = '', uri, mimeType } = res as unknown as { name?: string; uri: string; mimeType?: string | null };
+      const asset = Array.isArray((res as any).assets) && (res as any).assets.length > 0 ? (res as any).assets[0] : null;
+      const name = asset?.name || '';
+      const uri = asset?.uri || '';
+      const mimeType = asset?.mimeType || null;
+      const size = typeof asset?.size === 'number' ? asset.size : undefined;
+      if (!uri) {
+        Alert.alert('Error', 'No se pudo obtener el archivo');
+        return;
+      }
+      if (size && size > 20 * 1024 * 1024) {
+        Alert.alert('Archivo muy grande', 'Máximo 20MB');
+        return;
+      }
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
       const mt = mimeType || guessMimeTypeByName(name);
       const emailRaw = forEmail.trim();
@@ -193,18 +206,20 @@ export default function AdminStudies() {
       <Text style={{ fontSize: 22, color: colors.secondary, marginBottom: spacing.sm }}>Estudios</Text>
       <Text style={{ color: colors.muted, marginBottom: spacing.sm }}>Sube PDF, Word o Excel para que el paciente los pueda ver.</Text>
       <Text style={{ marginBottom: 4 }}>Paciente (email para asignar)</Text>
-      <input
-        type="email"
+      <PaperTextInput
         placeholder="usuario@dominio"
         value={forEmail}
-        onChange={(e) => setForEmail(e.target.value)}
-        style={{ padding: 10, border: '1px solid #d7d7d7', borderRadius: 8, marginBottom: 12, width: '100%', maxWidth: 420 }}
+        onChangeText={setForEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        mode="outlined"
+        style={{ marginBottom: 12, width: '100%', maxWidth: 420 }}
       />
 
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: spacing.md }}>
         {Platform.OS === 'web' ? (
           <>
-            <Button title="Subir estudio" onPress={pickWeb} />
+            <PaperButton mode="contained" icon="upload" onPress={pickWeb}>Subir estudio</PaperButton>
             {/* input oculto para web */}
             <input
               ref={inputRef as any}
@@ -215,9 +230,9 @@ export default function AdminStudies() {
             />
           </>
         ) : (
-          <Button title="Subir estudio" onPress={pickNative} />
+          <PaperButton mode="contained" icon="upload" onPress={pickNative}>Subir estudio</PaperButton>
         )}
-        <Button title="Volver" color={colors.accent} onPress={() => router.push('/admin/home')} />
+        <PaperButton mode="outlined" icon="arrow-left" onPress={() => router.push('/admin/home')}>Volver</PaperButton>
       </View>
 
       <Text style={{ fontSize: 18, marginBottom: spacing.sm }}>Estudios PDF (backend)</Text>
@@ -232,9 +247,9 @@ export default function AdminStudies() {
             <Text style={{ color: colors.muted }}>{item.mimeType}</Text>
             {item.forEmail ? <Text style={{ color: colors.muted }}>Asignado a: {item.forEmail}</Text> : null}
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-              <Button title="Ver" onPress={() => openRemote(item)} />
-              <Button title="Descargar" onPress={() => downloadRemote(item)} />
-              <Button title="Eliminar" color={colors.accent} onPress={() => onDeleteRemote(item.id)} />
+              <PaperButton mode="contained" icon="eye" onPress={() => openRemote(item)}>Ver</PaperButton>
+              <PaperButton mode="contained" icon="download" onPress={() => downloadRemote(item)}>Descargar</PaperButton>
+              <PaperButton mode="outlined" icon="delete" onPress={() => onDeleteRemote(item.id)}>Eliminar</PaperButton>
             </View>
           </View>
         )}
@@ -253,9 +268,9 @@ export default function AdminStudies() {
             <Text style={{ color: colors.muted }}>{item.mimeType}</Text>
             {item.forEmail ? <Text style={{ color: colors.muted }}>Asignado a: {item.forEmail}</Text> : null}
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
-              <Button title="Ver" onPress={() => openStudy(item)} />
-              <Button title="Descargar" onPress={() => downloadLocal(item)} />
-              <Button title="Eliminar" color={colors.accent} onPress={() => onDelete(item.id)} />
+              <PaperButton mode="contained" icon="eye" onPress={() => openStudy(item)}>Ver</PaperButton>
+              <PaperButton mode="contained" icon="download" onPress={() => downloadLocal(item)}>Descargar</PaperButton>
+              <PaperButton mode="outlined" icon="delete" onPress={() => onDelete(item.id)}>Eliminar</PaperButton>
             </View>
           </View>
         )}

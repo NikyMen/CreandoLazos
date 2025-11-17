@@ -1,8 +1,8 @@
-import { View, Text } from 'react-native';
+import { View, Text, Image } from 'react-native';
 import { Button as PaperButton } from 'react-native-paper';
 import { useAuth } from '../../lib/auth';
 import { Redirect } from 'expo-router';
-import { colors } from '../../lib/theme';
+import { colors, spacing } from '../../lib/theme';
 import { useRouter } from 'expo-router';
 
 export default function AdminHome() {
@@ -12,6 +12,7 @@ export default function AdminHome() {
   if (role !== 'ADMIN') return <Redirect href="/patient/home" />;
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <Image source={require('../../assets/icon.png')} style={{ width: 96, height: 96, marginBottom: spacing.sm }} />
       <Text style={{ fontSize: 20, marginBottom: 12, color: colors.secondary }}>Panel Administrador</Text>
       <Text>Desde aquí gestionarás horarios, estudios, informes y noticias.</Text>
       <View style={{ height: 12 }} />
@@ -23,7 +24,7 @@ export default function AdminHome() {
         contentStyle={{ height: 60 }}
         labelStyle={{ fontSize: 18 }}
       >
-        Editar calendario
+        Agendar cita
       </PaperButton>
       <View style={{ height: 8 }} />
       <PaperButton
@@ -56,7 +57,7 @@ export default function AdminHome() {
         contentStyle={{ height: 60 }}
         labelStyle={{ fontSize: 18 }}
       >
-        Perfil
+        Buscar paciente / crear paciente
       </PaperButton>
       <PaperButton
         style={{ marginTop: 8, width: '90%', alignSelf: 'center', borderRadius: 12 }}
