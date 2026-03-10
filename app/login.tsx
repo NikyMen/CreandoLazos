@@ -63,7 +63,6 @@ export default function LoginScreen() {
       <PaperButton mode="contained" onPress={onSubmit} disabled={loading} icon="login">
         {loading ? 'Ingresando...' : 'Ingresar'}
       </PaperButton>
-      <Text style={{ marginTop: spacing.sm, color: colors.muted, textAlign: 'center' }}>API: {apiUrl}</Text>
       <Text style={{ marginTop: spacing.sm, color: colors.muted }}>Plataforma: {Platform.OS}</Text>
       {isAuthenticated ? <Text style={{ marginTop: 8 }}>Sesión activa: {role}</Text> : null}
     </View>
