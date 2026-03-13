@@ -23,6 +23,7 @@ export default function AdminProfile() {
   const [newPatientCudVencimiento, setNewPatientCudVencimiento] = useState('');
   const [newPatientCudAcompanante, setNewPatientCudAcompanante] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   // Results state
   const [searchResults, setSearchResults] = useState<{ email: string; nombreApellido?: string }[]>([]);
@@ -46,29 +47,26 @@ export default function AdminProfile() {
     setIsSearching(true);
     setLastError(null);
     try {
-      // Intentamos varios endpoints comunes para listar
-      const endpoints = ['/profiles', '/profiles/list', '/auth/users', '/users', '/patients'];
+      // Usamos el endpoint más probable para listar
       let data: any[] = [];
-      let errorMsgs: string[] = [];
-      
-      for (const endpoint of endpoints) {
-        try {
-          const res = await api.get(endpoint);
-          if (res.data) {
-            const possibleArray = Array.isArray(res.data) 
-              ? res.data 
-              : (res.data.profiles || res.data.users || res.data.data || res.data.patients);
-            
-            if (Array.isArray(possibleArray) && possibleArray.length > 0) {
-              data = possibleArray;
-              break;
-            }
-          }
-        } catch (e: any) {
-          if (e.response?.status !== 404) {
-            errorMsgs.push(`${endpoint}: ${e.message}`);
+      try {
+        const res = await api.get('/profiles');
+        if (res.data) {
+          const possibleArray = Array.isArray(res.data) 
+            ? res.data 
+            : (res.data.profiles || res.data.users || res.data.data || res.data.patients);
+          
+          if (Array.isArray(possibleArray)) {
+            data = possibleArray;
           }
         }
+      } catch (e: any) {
+        // Fallback silencioso a /users
+        try {
+          const resUsers = await api.get('/users');
+          const results = Array.isArray(resUsers.data) ? resUsers.data : (resUsers.data.users || resUsers.data.data);
+          if (Array.isArray(results)) data = results;
+        } catch (e2) {}
       }
 
       if (data.length > 0) {
@@ -80,8 +78,6 @@ export default function AdminProfile() {
         setAllPatients(mapped);
       } else {
         setAllPatients([]);
-        // No mostramos error si solo son 404s, quizás el backend no tiene listado general
-        if (errorMsgs.length > 0) setLastError(errorMsgs.join(' | '));
       }
     } catch (err: any) {
       console.log('Error general en loadAllPatients:', err);
@@ -97,142 +93,29 @@ export default function AdminProfile() {
     setSnackbarMessage(message);
     setIsError(error);
     setSnackbarVisible(true);
-    // Solo mostramos alerta en caso de error real para no molestar al usuario si es éxito
-    if (error) {
-      console.error('Feedback Error:', message);
-      // Solo mostramos alerta si es un error crítico que el usuario debe conocer inmediatamente
-      // y no es un error que ya estamos manejando de forma silenciosa.
-      const ignoreMsgs = ['encontrado', 'already exists', 'ya existe'];
-      const shouldIgnore = ignoreMsgs.some(m => message.toLowerCase().includes(m));
-      
-      if (!shouldIgnore) {
-        Alert.alert('Aviso', message);
-      }
-    }
   };
 
-  const loadProfile = async (targetEmail: string) => {
-    try {
-      setIsSearching(true);
-      console.log(`Intentando cargar perfil de: ${targetEmail}`);
-      
-      // Intentamos obtener el perfil remoto
-      const remote = await getRemoteProfile(targetEmail);
-      if (remote) {
-        setProfile(remote);
-        setCanEdit(true);
-        // NO cerramos el modal, se mantiene abierto para editar
-        return;
-      }
-
-      // Si no viene mapeado, intentamos con la API directa
-      const res = await api.get('/profiles', { params: { email: targetEmail } });
-      if (res.data) {
-        const d = res.data;
-        setProfile({
-          nombreApellido: d.nombreApellido || d.nombre_apellido || d.nombre || '',
-          correo: d.email || d.correo || targetEmail,
-          cuilDni: d.cuilDni || d.cuil_dni || '',
-          obraSocial: d.obraSocial || d.obra_social || '',
-          escuela: d.escuela || '',
-          diagnostico: d.diagnostico || '',
-          servicio: d.servicio || '',
-          cudNumero: d.cudNumero || d.cud_numero || '',
-          cudVencimiento: d.cudVencimiento || d.cud_vencimiento || '',
-          cudAcompanante: !!(d.cudAcompanante || d.cud_acompanante)
-        });
-        setCanEdit(true);
-        return;
-      }
-      
-      showFeedback('Perfil no encontrado en servidor', true);
-      setCanEdit(false);
-    } catch (e: any) {
-      showFeedback(e?.message || 'No se pudo obtener perfil remoto', true);
-      setCanEdit(false);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const handleSearch = async (text: string) => {
+  const handleSearch = (text: string) => {
     setSearchQuery(text);
     if (!text.trim()) {
       setSearchResults([]);
       return;
     }
+    const lower = text.toLowerCase();
+    const filtered = allPatients.filter(p => 
+      p.email.toLowerCase().includes(lower) || 
+      (p.nombreApellido || '').toLowerCase().includes(lower)
+    );
+    setSearchResults(filtered);
+  };
 
-    const query = text.trim();
-    setIsSearching(true);
-    
+  const loadProfile = async (email: string) => {
     try {
-      // 1. Si el texto tiene formato de email, intentamos buscar el perfil específico
-      // porque sabemos que GET /profiles?email=... es una ruta que existe según lib/profile.ts
-      if (query.includes('@')) {
-        const remote = await getRemoteProfile(query);
-        if (remote) {
-          setSearchResults([{
-            email: remote.correo || query,
-            nombreApellido: remote.nombreApellido || ''
-          }]);
-          setIsSearching(false);
-          return;
-        }
-      }
-
-      // 2. Si no es un email exacto, probamos los endpoints de búsqueda
-      const searchParams = [
-        { query: query },
-        { email: query },
-        { search: query }
-      ];
-
-      let data: any[] = [];
-      const endpoints = ['/profiles', '/profiles/list', '/users', '/patients'];
-      
-      for (const endpoint of endpoints) {
-        for (const params of searchParams) {
-          try {
-            const res = await api.get(endpoint, { params });
-            if (res.data) {
-              const results = Array.isArray(res.data) 
-                ? res.data 
-                : (res.data.profiles || res.data.users || res.data.patients || res.data.data);
-              
-              if (Array.isArray(results) && results.length > 0) {
-                data = results;
-                break;
-              } else if (res.data.email || res.data.correo) {
-                // Caso donde devuelve un solo objeto
-                data = [res.data];
-                break;
-              }
-            }
-          } catch (e) {}
-        }
-        if (data.length > 0) break;
-      }
-
-      if (data.length > 0) {
-        const mapped = data.map((p: any) => ({
-          email: p.email || p.correo || p.user?.email || (typeof p === 'string' ? p : ''),
-          nombreApellido: p.nombreApellido || p.nombre_apellido || p.nombre || p.name || ''
-        })).filter(p => p.email);
-        setSearchResults(mapped);
-      } else {
-        // 3. Fallback local sobre los pacientes cargados inicialmente
-        const lowerQuery = query.toLowerCase();
-        const filtered = allPatients.filter(
-          (p) => 
-            p.email.toLowerCase().includes(lowerQuery) || 
-            (p.nombreApellido && p.nombreApellido.toLowerCase().includes(lowerQuery))
-        );
-        setSearchResults(filtered);
-      }
-    } catch (err) {
-      console.log('Error searching in database:', err);
-    } finally {
-      setIsSearching(false);
+      const p = await getProfileFor(email);
+      setProfile(p);
+      setCanEdit(true);
+    } catch (e: any) {
+      showFeedback('No se pudo cargar el perfil', true);
     }
   };
 
@@ -243,14 +126,12 @@ export default function AdminProfile() {
       await updateRemoteProfile(targetEmail, profile);
       await setProfileFor(targetEmail, profile);
       showFeedback('Paciente actualizado correctamente');
-      loadAllPatients(); // Refrescar lista por si cambió el nombre
-      setCanEdit(false); // Volver a la lista de búsqueda dentro del modal
+      loadAllPatients();
+      setCanEdit(false);
     } catch (e: any) {
       showFeedback(e?.message || 'No se pudo guardar', true);
     }
   };
-
-  const [isCreating, setIsCreating] = useState(false);
 
   const createPatient = async () => {
     try {
@@ -264,16 +145,13 @@ export default function AdminProfile() {
 
       setIsCreating(true);
 
-      // 0. Validar si el email ya existe localmente o en la lista cargada
       const emailExists = allPatients.some(p => p.email.toLowerCase() === em.toLowerCase());
       if (emailExists) {
         throw new Error('El email ya existe');
       }
 
-      // 1. Crear el usuario (Auth)
       await api.post('/auth/register', { email: em, password: pw, role: 'PATIENT' });
 
-      // 2. Crear el perfil inicial completo
       const initialProfile: ProfileData = {
         correo: em,
         nombreApellido: name,
@@ -291,15 +169,13 @@ export default function AdminProfile() {
         await updateRemoteProfile(em, initialProfile);
       } catch (e: any) {
         if (e.response?.status !== 404) {
-          throw e; // Relanzamos si no es el 404 que esperamos
+          throw e;
         }
-        // Si es 404, lo ignoramos y seguimos, porque el perfil local se creará igual
         console.log('Ignorando error 404 esperado al crear perfil remoto.');
       }
 
       await setProfileFor(em, initialProfile);
   
-      // Limpiar campos antes de mostrar el éxito para que se vea que terminó
       setNewPatientEmail('');
       setNewPatientPassword('');
       setNewPatientName('');
@@ -312,17 +188,12 @@ export default function AdminProfile() {
       setNewPatientCudVencimiento('');
       setNewPatientCudAcompanante(false);
 
-      // 3. Notificación de éxito
       showFeedback('Se creó exitosamente el usuario');
-      
-      // 4. Actualizar lista de pacientes
       loadAllPatients(); 
     } catch (e: any) {
-      // Manejo de errores detallado para el admin
       const errorResponse = e?.response?.data;
       const errorMessage = errorResponse?.error || errorResponse?.message || e.message || 'No se pudo crear el usuario';
       
-      // Si el error es de usuario ya existente, lo tratamos como error con mensaje rojo
       if (errorMessage.toLowerCase().includes('already exists') || errorMessage.toLowerCase().includes('ya existe') || errorMessage === 'El email ya existe') {
         showFeedback('El email ya existe', true);
       } else {

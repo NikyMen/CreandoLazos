@@ -6,6 +6,16 @@ import { useAuth } from '../../lib/auth';
 import { colors, spacing, radius } from '../../lib/theme';
 import { getProfileFor, type ProfileData } from '../../lib/profile';
 
+const InfoRow = ({ label, value, icon }: { label: string; value: string; icon: string }) => (
+  <View style={styles.infoRow}>
+    <List.Icon icon={icon} color={colors.primary} />
+    <View style={styles.infoTextContainer}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value || 'No especificado'}</Text>
+    </View>
+  </View>
+);
+
 export default function PatientProfile() {
   const { isAuthenticated, role, user } = useAuth();
   const [profile, setProfile] = useState<ProfileData>({});
@@ -19,16 +29,6 @@ export default function PatientProfile() {
 
   if (!isAuthenticated) return <Redirect href="/login" />;
   if (role !== 'PATIENT') return <Redirect href="/admin/home" />;
-
-  const InfoRow = ({ label, value, icon }: { label: string; value: string; icon: string }) => (
-    <View style={styles.infoRow}>
-      <List.Icon icon={icon} color={colors.primary} />
-      <View style={styles.infoTextContainer}>
-        <Text style={styles.infoLabel}>{label}</Text>
-        <Text style={styles.infoValue}>{value || 'No especificado'}</Text>
-      </View>
-    </View>
-  );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>

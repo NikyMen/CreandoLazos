@@ -63,12 +63,18 @@ export async function getStudiesFor(email?: string): Promise<Study[]> {
 
 // Backend helpers (PDF)
 export async function uploadPdfStudy(name: string, dataBase64: string, forEmail?: string): Promise<RemoteStudy> {
-  const res = await api.post('/studies', { name, mimeType: 'application/pdf', dataBase64, forEmail });
+  const res = await api.post('/studies', { 
+    name, 
+    type: 'pdf', // El backend espera 'type'
+    base64: dataBase64, // El backend espera 'base64'
+    forEmail,
+    date: new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) // El backend espera 'date'
+  });
   return res.data as RemoteStudy;
 }
 
 export async function getRemoteStudies(forEmail?: string): Promise<RemoteStudy[]> {
-  const res = await api.get('/studies', { params: { forEmail } });
+  const res = await api.get('/studies', { params: { email: forEmail } }); // El backend usa 'email' como query param
   return res.data as RemoteStudy[];
 }
 

@@ -1,14 +1,15 @@
 import axios from 'axios';
 
-const DEFAULT_API_URL = 'https://apicreandolazos.vercel.app';
+const DEFAULT_API_URL = 'https://apicreandolazos.vercel.app/api';
 
 function resolveApiUrl() {
   let value = (process.env.EXPO_PUBLIC_API_URL || '').trim();
   if (!value) return DEFAULT_API_URL;
+  if (!value.endsWith('/api')) value = `${value.replace(/\/+$/, '')}/api`;
   if (value.startsWith('http://https://')) value = value.replace(/^http:\/\//, '');
   if (value.startsWith('https://https://')) value = value.replace(/^https:\/\//, '');
   if (typeof window !== 'undefined' && value.includes('localhost:3002')) return DEFAULT_API_URL;
-  return value.replace(/\/+$/, '');
+  return value;
 }
 
 const API_URL = resolveApiUrl();

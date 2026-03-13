@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, Alert, FlatList, Image, TouchableOpacity } from 'react-native';
-import { TextInput as PaperTextInput, Button as PaperButton, Divider, Portal, Modal, List, Card, IconButton, SegmentedButtons } from 'react-native-paper';
+import { View, Text, ScrollView, Alert, FlatList, Image, TouchableOpacity, Platform, StyleSheet } from 'react-native';
+import { TextInput as PaperTextInput, Button as PaperButton, Divider, Portal, Modal, List, Card, IconButton, SegmentedButtons, ActivityIndicator } from 'react-native-paper';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../../lib/auth';
 import { colors, spacing, radius } from '../../lib/theme';
 import { listProfileEmails } from '../../lib/profile';
-import { getGalleryFor, uploadImageToGallery, deleteGalleryItem, type GalleryItem } from '../../lib/gallery';
+import { getGalleryFor, uploadMediaToGallery, deleteGalleryItem, type GalleryItem, testCloudinaryConnection } from '../../lib/gallery';
 import { api } from '../../lib/api';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 
 export default function AdminGallery() {
-  const { isAuthenticated, role } = useAuth();
+  const { isAuthenticated, role, user: authUser } = useAuth();
   const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
-  const [knownEmails, setKnownEmails] = useState<string[]>([]);
+  const [knownPatients, setKnownPatients] = useState<{ email: string; nombreApellido?: string }[]>([]);
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   
   const [isLoading, setIsLoading] = useState(false);
@@ -21,43 +21,90 @@ export default function AdminGallery() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<{ email: string; nombreApellido?: string }[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
-  const allPatientsData = useMemo(() => {
-    return knownEmails.map(em => ({ email: em, nombreApellido: '' }));
-  }, [knownEmails]);
+  // Status de conexión
+  const [isCheckingConfig, setIsCheckingConfig] = useState(false);
+  const [configStatus, setConfigStatus] = useState<'idle' | 'ok' | 'error'>('idle');
 
   // Upload state
   const [newImageTitle, setNewImageTitle] = useState('');
   const [newImageType, setNewImageType] = useState<GalleryItem['type']>('activity');
   const [uploading, setUploading] = useState(false);
+  const [uploadStep, setUploadStep] = useState('');
 
+  // 0. Esperar a que el auth esté listo
   useEffect(() => {
-    (async () => {
+    const timer = setTimeout(() => setIsAuthReady(true), 500);
+    return () => clearTimeout(timer);
+  }, [isAuthenticated]);
+
+  // 1. Carga inicial de pacientes
+  useEffect(() => {
+    const init = async () => {
       try {
-        const localList = await listProfileEmails();
-        setKnownEmails(localList);
-        
         const res = await api.get('/profiles');
-        const data = Array.isArray(res.data) ? res.data : (res.data.profiles || res.data.users || res.data.data || res.data.patients);
+        const data = Array.isArray(res.data) ? res.data : (res.data.profiles || res.data.users || res.data.patients || res.data.data);
+        
         if (Array.isArray(data)) {
-          const apiEmails = data.map((p: any) => p.email || p.correo || (typeof p === 'string' ? p : '')).filter(Boolean);
-          setKnownEmails(prev => [...new Set([...prev, ...apiEmails])].sort());
+          const mapped = data.map((p: any) => ({
+            email: String(p.email || p.correo || p.user?.email || (typeof p === 'string' ? p : '')).toLowerCase(),
+            nombreApellido: String(p.nombreApellido || p.nombre_apellido || p.nombre || p.name || '')
+          })).filter(p => p.email);
+          setKnownPatients(mapped);
+        } else {
+          const localEmails = await listProfileEmails();
+          setKnownPatients(localEmails.map(em => ({ email: String(em).toLowerCase(), nombreApellido: '' })));
         }
-      } catch (e) {}
-    })();
+      } catch (e) {
+        console.error('Error cargando pacientes:', e);
+        try {
+          const localEmails = await listProfileEmails();
+          setKnownPatients(localEmails.map(em => ({ email: String(em).toLowerCase(), nombreApellido: '' })));
+        } catch (e2) {
+          setKnownPatients([]);
+        }
+      }
+    };
+    init();
+    checkConfigSilently();
   }, []);
 
+  // 2. Cargar galería cuando cambia el email seleccionado
   useEffect(() => {
     if (selectedEmail) {
       loadGallery(selectedEmail);
     }
   }, [selectedEmail]);
 
+  const checkConfigSilently = async () => {
+    const ok = await testCloudinaryConnection();
+    setConfigStatus(ok ? 'ok' : 'error');
+  };
+
+  const checkConfig = async () => {
+    setIsCheckingConfig(true);
+    const ok = await testCloudinaryConnection();
+    setConfigStatus(ok ? 'ok' : 'error');
+    setIsCheckingConfig(false);
+    
+    if (ok) {
+      Alert.alert('Éxito', 'Conexión con Cloudinary establecida correctamente');
+    } else {
+      Alert.alert('Error', 'No se pudo conectar con Cloudinary. Verifica el modo "Unsigned" en tu panel.');
+    }
+  };
+
   const loadGallery = async (email: string) => {
     setIsLoading(true);
-    const items = await getGalleryFor(email);
-    setGalleryItems(items);
-    setIsLoading(false);
+    try {
+      const items = await getGalleryFor(email);
+      setGalleryItems(items || []);
+    } catch (e) {
+      setGalleryItems([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSearch = async (text: string) => {
@@ -67,48 +114,39 @@ export default function AdminGallery() {
       return;
     }
 
-    const query = text.trim();
+    const query = text.trim().toLowerCase();
     setIsSearching(true);
     
     try {
-      const searchParams = [{ query: query }, { email: query }, { search: query }];
-      let data: any[] = [];
-      const endpoints = ['/profiles', '/profiles/list', '/users', '/patients'];
-      
-      for (const endpoint of endpoints) {
-        for (const params of searchParams) {
-          try {
-            const res = await api.get(endpoint, { params });
-            if (res.data) {
-              const results = Array.isArray(res.data) ? res.data : (res.data.profiles || res.data.users || res.data.patients || res.data.data);
-              if (Array.isArray(results) && results.length > 0) {
-                data = results;
-                break;
-              } else if (res.data.email || res.data.correo) {
-                data = [res.data];
-                break;
-              }
-            }
-          } catch (e) {}
-        }
-        if (data.length > 0) break;
-      }
+      // Búsqueda local segura
+      const localMatches = knownPatients.filter(p => 
+        (p.email && p.email.toLowerCase().includes(query)) || 
+        (p.nombreApellido && p.nombreApellido.toLowerCase().includes(query))
+      );
 
-      if (data.length > 0) {
-        const mapped = data.map((p: any) => ({
-          email: p.email || p.correo || p.user?.email || (typeof p === 'string' ? p : ''),
-          nombreApellido: p.nombreApellido || p.nombre_apellido || p.nombre || p.name || ''
-        })).filter(p => p.email);
-        setSearchResults(mapped);
-      } else {
-        const lowerQuery = query.toLowerCase();
-        const filtered = knownEmails
-          .filter(em => em.toLowerCase().includes(lowerQuery))
-          .map(em => ({ email: em }));
-        setSearchResults(filtered);
+      setSearchResults(localMatches);
+
+      // Búsqueda en API para asegurar perfiles nuevos
+      try {
+        const res = await api.get('/profiles', { params: { query: text.trim() } });
+        const apiData = Array.isArray(res.data) ? res.data : (res.data.profiles || res.data.users || res.data.patients || res.data.data);
+        
+        if (Array.isArray(apiData)) {
+          const mappedApi = apiData.map((p: any) => ({
+            email: (p.email || p.correo || p.user?.email || '').toLowerCase(),
+            nombreApellido: p.nombreApellido || p.nombre_apellido || p.nombre || p.name || ''
+          })).filter(p => p.email);
+
+          // Combinar sin duplicados
+          const combined = [...localMatches, ...mappedApi];
+          const uniqueResults = Array.from(new Map(combined.map(item => [item.email, item])).values());
+          setSearchResults(uniqueResults);
+        }
+      } catch (e) {
+        // Fallback silencioso si falla la API, ya mostramos los locales
       }
     } catch (err) {
-      console.log('Error searching:', err);
+      console.error('Error en búsqueda:', err);
     } finally {
       setIsSearching(false);
     }
@@ -126,41 +164,59 @@ export default function AdminGallery() {
     }
 
     if (!newImageTitle.trim()) {
-      Alert.alert('Error', 'Ingresa un título para la imagen');
+      Alert.alert('Error', 'Ingresa un título para el archivo');
       return;
     }
 
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: 'image/*',
+        type: ['image/*', 'video/*'],
         copyToCacheDirectory: true,
       });
 
       if (result.canceled) return;
 
       const file = result.assets[0];
-      setUploading(true);
-
-      const base64 = await FileSystem.readAsStringAsync(file.uri, {
-        encoding: 'base64',
-      });
-
-      const fullBase64 = `data:${file.mimeType || 'image/jpeg'};base64,${base64}`;
+      const isVideo = file.mimeType?.startsWith('video/') || file.name.toLowerCase().endsWith('.mp4') || file.name.toLowerCase().endsWith('.mov');
       
-      const uploaded = await uploadImageToGallery(selectedEmail, fullBase64, newImageTitle, newImageType);
+      setUploading(true);
+      setUploadStep('Preparando archivo...');
+
+      let fileData: any;
+      if (Platform.OS === 'web') {
+        const response = await fetch(file.uri);
+        const blob = await response.blob();
+        fileData = blob;
+      } else {
+        // En móvil (Native), FormData requiere este objeto específico para reconocer el archivo
+        fileData = {
+          uri: file.uri,
+          type: file.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg'),
+          name: file.name || (isVideo ? 'video.mp4' : 'image.jpg'),
+        };
+      }
+      
+      const uploaded = await uploadMediaToGallery(
+        selectedEmail, 
+        fileData, 
+        newImageTitle, 
+        newImageType,
+        isVideo ? 'video' : 'image',
+        (step) => setUploadStep(step)
+      );
 
       if (uploaded) {
-        Alert.alert('Éxito', 'Imagen subida correctamente');
+        Alert.alert('Éxito', 'Contenido subido correctamente');
         setNewImageTitle('');
+        setUploadStep('');
         loadGallery(selectedEmail);
-      } else {
-        Alert.alert('Error', 'No se pudo subir la imagen');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Upload error:', err);
-      Alert.alert('Error', 'Ocurrió un error al subir la imagen');
+      Alert.alert('Error de Subida', err.message || 'Ocurrió un error inesperado');
     } finally {
       setUploading(false);
+      setUploadStep('');
     }
   };
 
@@ -186,13 +242,59 @@ export default function AdminGallery() {
     );
   };
 
+  if (!isAuthReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
   if (!isAuthenticated) return <Redirect href="/login" />;
   if (role !== 'ADMIN') return <Redirect href="/patient/home" />;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ScrollView contentContainerStyle={{ padding: spacing.md }}>
-        <Text style={{ fontSize: 24, color: colors.secondary, marginBottom: spacing.md, fontWeight: 'bold' }}>Gestionar Galería</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
+          <Text style={{ fontSize: 24, color: colors.secondary, fontWeight: 'bold' }}>Gestionar Galería</Text>
+          <IconButton 
+            icon={configStatus === 'ok' ? 'cloud-check' : configStatus === 'error' ? 'cloud-alert' : 'cloud-sync'} 
+            iconColor={configStatus === 'ok' ? '#4CAF50' : configStatus === 'error' ? '#F44336' : colors.primary}
+            onPress={checkConfig}
+            loading={isCheckingConfig}
+          />
+        </View>
+
+        {/* Card de Configuración Cloudinary */}
+        <Card style={{ marginBottom: spacing.md, backgroundColor: '#f8f9fa' }}>
+          <Card.Content>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontWeight: 'bold', color: colors.primary }}>Estado de Cloudinary</Text>
+                <Text style={{ fontSize: 12, color: colors.muted }}>Preset: ml_default</Text>
+              </View>
+              <PaperButton 
+                mode="outlined" 
+                onPress={checkConfig} 
+                loading={isCheckingConfig}
+                compact
+              >
+                Probar
+              </PaperButton>
+            </View>
+            
+            {configStatus === 'error' && (
+              <Surface style={{ padding: spacing.sm, backgroundColor: '#FFF5F5', borderRadius: 8, marginTop: 4 }}>
+                <Text style={{ fontSize: 11, color: '#C53030', fontWeight: 'bold' }}>⚠️ Acción Requerida:</Text>
+                <Text style={{ fontSize: 11, color: '#C53030' }}>
+                  1. Ve a Configuración -> Upload en Cloudinary.{"\n"}
+                  2. Cambia el preset "ml_default" a modo "Unsigned".
+                </Text>
+              </Surface>
+            )}
+          </Card.Content>
+        </Card>
 
         <View style={{ backgroundColor: '#fff', padding: spacing.md, borderRadius: radius.md, elevation: 2, marginBottom: spacing.md }}>
           <Text style={{ fontSize: 16, marginBottom: spacing.sm, fontWeight: '600' }}>Paciente Seleccionado</Text>
@@ -214,10 +316,10 @@ export default function AdminGallery() {
 
         {selectedEmail && (
           <View style={{ backgroundColor: '#fff', padding: spacing.md, borderRadius: radius.md, elevation: 2, marginBottom: spacing.md }}>
-            <Text style={{ fontSize: 18, marginBottom: spacing.md, fontWeight: '700', color: colors.primary }}>Subir Nueva Imagen</Text>
+            <Text style={{ fontSize: 18, marginBottom: spacing.md, fontWeight: '700', color: colors.primary }}>Subir Nuevo Recuerdo</Text>
             
             <PaperTextInput
-              label="Título de la imagen"
+              label="Título (Imagen o Video)"
               value={newImageTitle}
               onChangeText={setNewImageTitle}
               mode="outlined"
@@ -236,6 +338,13 @@ export default function AdminGallery() {
               ]}
             />
 
+            {uploading && (
+              <View style={{ alignItems: 'center', marginBottom: spacing.md }}>
+                <ActivityIndicator animating={true} color={colors.primary} />
+                <Text style={{ marginTop: 8, color: colors.primary, fontWeight: '600' }}>{uploadStep}</Text>
+              </View>
+            )}
+
             <PaperButton 
               mode="contained" 
               icon="cloud-upload" 
@@ -244,7 +353,7 @@ export default function AdminGallery() {
               disabled={uploading || !newImageTitle.trim()}
               style={{ paddingVertical: 4 }}
             >
-              Seleccionar y Subir
+              {uploading ? 'Subiendo...' : 'Seleccionar Imagen o Video'}
             </PaperButton>
           </View>
         )}
@@ -260,10 +369,17 @@ export default function AdminGallery() {
               <View style={{ gap: spacing.md }}>
                 {galleryItems.map((item) => (
                   <Card key={item.id} style={{ overflow: 'hidden' }}>
-                    <Card.Cover source={{ uri: item.uri }} style={{ height: 180 }} />
+                    {item.resourceType === 'video' ? (
+                      <View style={{ height: 180, backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }}>
+                        <IconButton icon="video" size={48} iconColor={colors.primary} />
+                        <Text style={{ color: colors.muted }}>Video</Text>
+                      </View>
+                    ) : (
+                      <Card.Cover source={{ uri: item.uri }} style={{ height: 180 }} />
+                    )}
                     <Card.Title 
                       title={item.title} 
-                      subtitle={`${item.date} • ${item.type}`}
+                      subtitle={`${item.date} • ${item.type} • ${item.resourceType || 'image'}`}
                       right={(props) => (
                         <IconButton 
                           {...props} 
@@ -307,18 +423,21 @@ export default function AdminGallery() {
           />
 
           <View style={{ maxHeight: 300 }}>
-            {isSearching ? (
+            {isSearching && searchResults.length === 0 ? (
               <View style={{ padding: 20, alignItems: 'center' }}>
-                <Text>Buscando...</Text>
+                <ActivityIndicator color={colors.primary} />
+                <Text style={{ marginTop: 10 }}>Buscando...</Text>
               </View>
             ) : (
               <FlatList
-                data={searchResults.length > 0 ? searchResults : allPatientsData}
+                data={searchResults.length > 0 ? searchResults : (searchQuery.trim() ? [] : knownPatients)}
                 keyExtractor={(item, index) => item.email || index.toString()}
                 ItemSeparatorComponent={() => <Divider />}
                 ListEmptyComponent={() => (
                   <View style={{ padding: 20, alignItems: 'center' }}>
-                    <Text style={{ color: '#666' }}>No se encontraron pacientes</Text>
+                    <Text style={{ color: '#666' }}>
+                      {searchQuery.trim() ? 'No se encontraron pacientes' : 'Cargando pacientes...'}
+                    </Text>
                   </View>
                 )}
                 renderItem={({ item }) => (
@@ -341,3 +460,4 @@ export default function AdminGallery() {
     </View>
   );
 }
+

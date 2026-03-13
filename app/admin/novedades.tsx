@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { View, Text, TextInput, Button, FlatList, Alert, StyleSheet, ScrollView } from 'react-native';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../../lib/auth';
@@ -14,16 +14,18 @@ export default function AdminNovedades() {
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  useEffect(() => {
-    loadNovedades();
-  }, []);
-
-  const loadNovedades = async () => {
+  const loadNovedades = useCallback(async () => {
     const evs = await getEvents();
-    // Ordenar por fecha descendente (lo más nuevo arriba) para un foro
     evs.sort((a, b) => compareEventDates(b, a));
     setEvents(evs);
-  };
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      await loadNovedades();
+    };
+    init();
+  }, [loadNovedades]);
 
   if (!isAuthenticated) return <Redirect href="/login" />;
   if (role !== 'ADMIN') return <Redirect href="/patient/home" />;

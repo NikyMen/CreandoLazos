@@ -1,6 +1,6 @@
-import { View, Text, StyleSheet, ScrollView, Image, Dimensions, Modal, TouchableOpacity, Platform, RefreshControl } from 'react-native';
-import { useEffect, useState } from 'react';
-import { IconButton, Card, Surface, Avatar, ActivityIndicator } from 'react-native-paper';
+import { View, Text, StyleSheet, ScrollView, Image, Dimensions, Modal, TouchableOpacity, Platform, RefreshControl, Linking } from 'react-native';
+import { useEffect, useState, useCallback } from 'react';
+import { IconButton, Card, Surface, Avatar, ActivityIndicator, Button as PaperButton } from 'react-native-paper';
 import { Redirect } from 'expo-router';
 import { useAuth } from '../../lib/auth';
 import { colors, spacing, radius } from '../../lib/theme';
@@ -13,18 +13,21 @@ export default function PatientGallery() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (user?.email) {
-      loadGallery();
-    }
-  }, [user?.email]);
-
-  const loadGallery = async () => {
+  const loadGallery = useCallback(async () => {
     setLoading(true);
     const items = await getGalleryFor(user?.email);
     setMemories(items);
     setLoading(false);
-  };
+  }, [user?.email]);
+
+  useEffect(() => {
+    const init = async () => {
+      if (user?.email) {
+        await loadGallery();
+      }
+    };
+    init();
+  }, [user?.email, loadGallery]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -55,6 +58,18 @@ export default function PatientGallery() {
       case 'event': return 'party-popper';
       default: return 'image';
     }
+  };
+
+  const renderMedia = (item: GalleryItem, style: any) => {
+    if (item.resourceType === 'video') {
+      return (
+        <View style={[style, { backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }]}>
+          <IconButton icon="play-circle-outline" size={64} iconColor="#fff" />
+          <Text style={{ color: '#fff', fontSize: 12 }}>Video</Text>
+        </View>
+      );
+    }
+    return <Card.Cover source={{ uri: item.uri }} style={style} />;
   };
 
   return (
@@ -89,7 +104,7 @@ export default function PatientGallery() {
                 mode="elevated"
                 onPress={() => setSelectedImageIndex(index)}
               >
-                <Card.Cover source={{ uri: item.uri }} style={styles.cardImage} />
+                {renderMedia(item, styles.cardImage)}
                 <Card.Content style={styles.cardInfo}>
                   <View style={styles.cardHeader}>
                     <Avatar.Icon 
@@ -144,11 +159,37 @@ export default function PatientGallery() {
             />
             
             {selectedImageIndex !== null && (
-              <Image
-                source={{ uri: memories[selectedImageIndex].uri }}
-                style={styles.fullImage}
-                resizeMode="contain"
-              />
+              memories[selectedImageIndex].resourceType === 'video' ? (
+                <View style={styles.videoViewer}>
+                  {Platform.OS === 'web' ? (
+                    <video 
+                      src={memories[selectedImageIndex].uri} 
+                      controls 
+                      style={{ width: '100%', height: '100%', maxWidth: 800 }}
+                    />
+                  ) : (
+                    <>
+                      <IconButton icon="video" size={80} iconColor="#fff" />
+                      <Text style={{ color: '#fff', textAlign: 'center', padding: 20 }}>
+                        Este es un video. Para verlo en dispositivos móviles se requiere instalar expo-av.
+                      </Text>
+                      <PaperButton 
+                        mode="contained" 
+                        onPress={() => Linking.openURL(memories[selectedImageIndex].uri)}
+                        style={{ marginTop: 10 }}
+                      >
+                        Ver en Navegador
+                      </PaperButton>
+                    </>
+                  )}
+                </View>
+              ) : (
+                <Image
+                  source={{ uri: memories[selectedImageIndex].uri }}
+                  style={styles.fullImage}
+                  resizeMode="contain"
+                />
+              )
             )}
 
             <IconButton
@@ -269,6 +310,13 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
+  },
+  videoViewer: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   navButton: {
     backgroundColor: 'rgba(255,255,255,0.05)',
